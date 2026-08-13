@@ -533,6 +533,7 @@ const Payments = () => {
                           <p>Name: {entry.allocationChequeName || '-'}</p>
                           <p>Bank: {entry.allocationBankName || '-'}</p>
                           <p>Date: {entry.allocationChequeDate || '-'}</p>
+                          <p>Given To: {entry.allocationChequeIssuedTo || '-'}</p>
                         </div>
                       ) : (
                         '-'

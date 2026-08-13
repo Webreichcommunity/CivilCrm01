@@ -212,6 +212,7 @@ const Reports = () => {
           'Cheque Name': item.allocationChequeName || '',
           'Bank Name': item.allocationBankName || '',
           'Cheque Date': item.allocationChequeDate || '',
+          'Cheque Given To': item.allocationChequeIssuedTo || '',
           Note: item.note || ''
         }))
       ),

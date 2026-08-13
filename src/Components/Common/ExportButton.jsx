@@ -61,10 +61,18 @@ const mapDataByType = (data, type, itemNames) => {
 
   if (type === 'expense') {
     return data.map((entry) => {
+      const payees = entry.payees?.length
+        ? entry.payees.map((payee) => {
+          const cheque = payee.paymentMode === 'cheque'
+            ? `, Cheque: ${payee.chequeNumber || '-'}, ${payee.chequeName || '-'}, ${payee.bankName || '-'}, ${payee.chequeDate || '-'}, Given To: ${payee.chequeIssuedTo || '-'}`
+            : '';
+          return `${payee.payeeName || 'Payee'}: INR ${Number(payee.amount || 0).toLocaleString('en-IN')} (${payee.paymentMode || '-'})${cheque}`;
+        }).join(' | ')
+        : '';
       const allocations = entry.allocations?.length
         ? entry.allocations.map((allocation) => {
           const cheque = allocation.paymentMode === 'cheque'
-            ? `, Cheque: ${allocation.chequeNumber || '-'}, ${allocation.chequeName || '-'}, ${allocation.bankName || '-'}, ${allocation.chequeDate || '-'}`
+            ? `, Cheque: ${allocation.chequeNumber || '-'}, ${allocation.chequeName || '-'}, ${allocation.bankName || '-'}, ${allocation.chequeDate || '-'}, Given To: ${allocation.chequeIssuedTo || '-'}`
             : '';
           return `${allocation.projectName || 'Site'}: INR ${Number(allocation.amount || 0).toLocaleString('en-IN')} (${allocation.paymentMode || '-'})${cheque}`;
         }).join(' | ')
@@ -72,16 +80,19 @@ const mapDataByType = (data, type, itemNames) => {
 
       return {
         'Date & Time': new Date(entry.dateTime).toLocaleString('en-IN'),
+        'Expense Flow': entry.payeeMode === 'multiple' ? 'Single site to multiple payees' : 'Single payee',
         'Payee Type': entry.payeeType || '',
         'Payee Name': entry.payeeName || '',
+        Payees: payees,
         'Expense Title': entry.expenseTitle || '',
         'Amount (INR)': Number(entry.amount || 0),
-        'Payment Mode': entry.paymentMode || (entry.allocationMode === 'multiple' ? 'Site-wise' : ''),
+        'Payment Mode': entry.paymentMode || (entry.allocationMode === 'multiple' ? 'Site-wise' : entry.payeeMode === 'multiple' ? 'Payee-wise' : ''),
         'Site Allocations': allocations,
         'Cheque Number': entry.chequeNumber || '',
         'Cheque Name': entry.chequeName || '',
         'Bank Name': entry.bankName || '',
         'Cheque Date': entry.chequeDate || '',
+        'Cheque Given To': entry.chequeIssuedTo || '',
         Note: entry.note || ''
       };
     });

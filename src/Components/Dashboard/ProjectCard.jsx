@@ -44,10 +44,6 @@ const ProjectCard = ({ project, onDelete, onUpdate }) => {
     other: 'Other'
   }[value] || 'Project');
 
-  const formatCurrency = (value) => `INR ${Number(value || 0).toLocaleString('en-IN')}`;
-  const totalOutflow = Number(project.materialCost || 0) + Number(project.labourCost || 0) + Number(project.paymentOut || 0) + Number(project.allocatedExpenseCost || 0);
-  const balance = Number(project.paymentReceived || 0) - totalOutflow;
-
   const saveName = () => {
     const cleaned = draftName.trim();
     const cleanedClientName = draftClientName.trim();
@@ -115,7 +111,7 @@ const ProjectCard = ({ project, onDelete, onUpdate }) => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(240px,1fr)_auto_auto] xl:items-center">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(240px,1fr)_auto] xl:items-center">
           <div className="min-w-0">
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-700">
@@ -129,25 +125,6 @@ const ProjectCard = ({ project, onDelete, onUpdate }) => {
             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
               <span>Client: {project.clientName || 'Not specified'}</span>
               <span>Updated {formatDate(project.updatedAt)}</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-[560px]">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="text-[11px] text-slate-500">In</p>
-              <p className="truncate text-sm font-semibold text-emerald-700">{formatCurrency(project.paymentReceived)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="text-[11px] text-slate-500">Outflow</p>
-              <p className="truncate text-sm font-semibold text-red-700">{formatCurrency(totalOutflow)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="text-[11px] text-slate-500">Other</p>
-              <p className="truncate text-sm font-semibold text-slate-900">{formatCurrency(project.allocatedExpenseCost)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <p className="text-[11px] text-slate-500">Balance</p>
-              <p className={`truncate text-sm font-semibold ${balance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatCurrency(balance)}</p>
             </div>
           </div>
 

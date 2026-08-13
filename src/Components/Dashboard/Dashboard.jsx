@@ -3,20 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
 import {
   BriefcaseBusiness,
-  Hammer,
-  HandCoins,
-  Layers3,
   Plus,
   ReceiptText,
   Search,
+  ShieldCheck,
   TrendingUp,
+  UsersRound,
   Zap
 } from 'lucide-react';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { db } from '../../Firebase/config';
 import ProjectCard from './ProjectCard';
 import CreateProjectModal from './CreateProjectModal';
-import { getAllocatedExpenseTotalForProject } from '../../utils/projectFinance';
 
 /* ─── helpers ─── */
 const greeting = () => {
@@ -29,8 +27,6 @@ const greeting = () => {
 const initials = (name = '') =>
   name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'AD';
 
-const formatCurrency = (value) => `INR ${Number(value || 0).toLocaleString('en-IN')}`;
-
 /* ─── animation ─── */
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 18 },
@@ -40,7 +36,6 @@ const fadeUp = (delay = 0) => ({
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [projects, setProjects]       = useState([]);
-  const [companyExpenses, setCompanyExpenses] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading]         = useState(true);
   const [searchTerm, setSearchTerm]   = useState('');
@@ -54,12 +49,8 @@ const Dashboard = ({ user }) => {
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      const [snap, expenseSnap] = await Promise.all([
-        getDocs(collection(db, 'projects')),
-        getDocs(collection(db, 'expenses'))
-      ]);
+      const snap = await getDocs(collection(db, 'projects'));
       const base = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const expenses = expenseSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const full = await Promise.all(
         base.map(async p => {
           const [mat, lab, pay] = await Promise.all([
@@ -75,7 +66,6 @@ const Dashboard = ({ user }) => {
           const paymentOut = pay.docs
             .filter((entry) => entry.data().paymentType === 'out')
             .reduce((sum, entry) => sum + Number(entry.data().amount || 0), 0);
-          const allocatedExpenseCost = getAllocatedExpenseTotalForProject(expenses, p.id);
           const recent = [
             ...mat.docs.map((entry) => ({ id: entry.id, projectName: p.name, type: 'Material', amount: entry.data().finalAmount, date: entry.data().dateTime, tone: 'slate' })),
             ...lab.docs.map((entry) => ({ id: entry.id, projectName: p.name, type: 'Labour', amount: entry.data().amount, date: entry.data().date, tone: 'blue' })),
@@ -89,10 +79,9 @@ const Dashboard = ({ user }) => {
             }))
           ];
 
-          return { ...p, materialCount: mat.size, labourCount: lab.size, paymentCount: pay.size, materialCost, labourCost, paymentReceived, paymentOut, allocatedExpenseCost, recent };
+          return { ...p, materialCount: mat.size, labourCount: lab.size, paymentCount: pay.size, materialCost, labourCost, paymentReceived, paymentOut, recent };
         })
       );
-      setCompanyExpenses(expenses);
       setProjects(full.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)));
     } catch (e) {
       console.error('Error fetching projects:', e);
@@ -137,33 +126,6 @@ const Dashboard = ({ user }) => {
       p.name?.toLowerCase().includes(kw) || p.clientName?.toLowerCase().includes(kw)
     );
   }, [projects, searchTerm]);
-
-  const totals = useMemo(() => {
-    const materialCost = projects.reduce((sum, project) => sum + Number(project.materialCost || 0), 0);
-    const labourCost = projects.reduce((sum, project) => sum + Number(project.labourCost || 0), 0);
-    const paymentReceived = projects.reduce((sum, project) => sum + Number(project.paymentReceived || 0), 0);
-    const paymentOut = projects.reduce((sum, project) => sum + Number(project.paymentOut || 0), 0);
-    const otherExpenses = companyExpenses.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-    const totalSpend = materialCost + labourCost + paymentOut + otherExpenses;
-
-    return {
-      materialCost,
-      labourCost,
-      paymentReceived,
-      paymentOut,
-      otherExpenses,
-      totalSpend,
-      cashBalance: paymentReceived - totalSpend
-    };
-  }, [projects, companyExpenses]);
-
-  const stats = useMemo(() => [
-    { title: 'Total Projects', value: projects.length, icon: BriefcaseBusiness },
-    { title: 'Payment Received', value: formatCurrency(totals.paymentReceived), icon: HandCoins },
-    { title: 'Material Spend', value: formatCurrency(totals.materialCost), icon: Layers3 },
-    { title: 'Labour Spend', value: formatCurrency(totals.labourCost), icon: Hammer },
-    { title: 'Other Expenses', value: formatCurrency(totals.otherExpenses), icon: ReceiptText },
-  ], [projects.length, totals]);
 
   const topProject = useMemo(() => {
     if (!projects.length) return null;
@@ -243,35 +205,25 @@ const Dashboard = ({ user }) => {
               <ReceiptText className="h-4 w-4" />
               Other Expenses
             </button>
+            <button
+              type="button"
+              onClick={() => navigate('/staff')}
+              className="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-white/15 px-4 text-sm font-semibold text-white ring-1 ring-white/25 transition hover:bg-white/25 active:scale-95"
+            >
+              <UsersRound className="h-4 w-4" />
+              Staff
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/superadmin')}
+              className="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-blue-50 active:scale-95"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Super Admin
+            </button>
           </div>
         </div>
       </Motion.section>
-
-      {/* Stats grid */}
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-        {stats.map((stat, i) => (
-          <Motion.div
-            key={stat.title}
-            {...fadeUp(0.08 + i * 0.06)}
-            whileHover={{ y: -4, scale: 1.015, transition: { duration: 0.22 } }}
-            className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 p-4 shadow-sm backdrop-blur-xl transition-all duration-300 hover:border-blue-200 hover:shadow-md hover:shadow-blue-100/50"
-            style={{ WebkitBackdropFilter: 'blur(16px)' }}
-          >
-            {/* top shine edge */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
-            <div className="pointer-events-none absolute -bottom-8 -right-8 h-24 w-24 rounded-full bg-blue-400/0 blur-2xl transition-all duration-500 group-hover:bg-blue-400/15" />
-
-            <div className="mb-3 inline-flex rounded-xl bg-blue-600/10 p-2.5 ring-1 ring-blue-600/20">
-              <stat.icon className="h-5 w-5 text-blue-700" />
-            </div>
-
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-              {stat.title}
-            </p>
-            <p className="mt-1 break-words text-2xl font-bold text-zinc-900 md:text-3xl">{stat.value}</p>
-          </Motion.div>
-        ))}
-      </section>
 
       {/* ── MOST ACTIVE PROJECT ── */}
       <AnimatePresence>

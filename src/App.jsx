@@ -12,6 +12,8 @@ import Labour from './Components/Projects/Labour';
 import Payments from './Components/Projects/Payments';
 import Reports from './Components/Projects/Reports';
 import Expenses from './Components/Projects/Expenses';
+import StaffManagement from './Components/Staff/StaffManagement';
+import SuperAdminPanel from './Components/Admin/SuperAdminPanel';
 
 function App() {
   // Temporary auth bypass for direct app access.
@@ -50,6 +52,8 @@ function App() {
         <Route path="/" element={AUTH_BYPASS || user ? <Layout user={user} /> : <Navigate to="/login" replace />}>
           <Route index element={<Dashboard user={user} />} />
           <Route path="expenses" element={<Expenses />} />
+          <Route path="staff" element={<StaffManagement />} />
+          <Route path="superadmin" element={<SuperAdminPanel />} />
 
           <Route path="project/:projectId" element={<ProjectDetails />}>
             <Route index element={<Navigate to="materials" replace />} />
