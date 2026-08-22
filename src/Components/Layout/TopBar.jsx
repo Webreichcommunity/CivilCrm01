@@ -72,7 +72,13 @@ const TopBar = ({ onMenuClick, showMenuButton, userName, currentProjectName }) =
             </button>
           )}
 
-          <img src="/brandlogo.png" alt="Webreich" loading="eager" decoding="async" className="mr-2 h-12 w-12 shrink-0 rounded-md bg-white p-1 object-contain" />
+          <img
+            src="/logo.png"
+            alt="Vastushobha Construction"
+            loading="eager"
+            decoding="async"
+            className="mr-2 h-11 w-32 max-w-[38vw] shrink-0 rounded-lg bg-white px-2 py-1 object-contain shadow-sm ring-1 ring-white/20 sm:h-12 sm:w-40"
+          />
 
           <div className="min-w-0">
             <p className="truncate text-xs font-medium uppercase tracking-[0.2em] text-slate-300">Vastushobha Construction</p>

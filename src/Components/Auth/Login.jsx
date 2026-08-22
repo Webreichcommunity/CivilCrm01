@@ -31,7 +31,13 @@ const Login = () => {
     <div className="flex flex-col min-h-screen items-center justify-center p-4">
       <div className="glass-card w-full max-w-md overflow-hidden">
         <div className="border-b border-zinc-200 bg-slate-950 px-6 py-8 text-center text-white">
-          <img src="/brandlogo.png" alt="Webreich" loading="eager" decoding="async" className="mx-auto h-16 w-16 rounded-2xl border border-slate-700 bg-white p-2 object-contain" />
+          <img
+            src="/logo.png"
+            alt="Vastushobha Construction"
+            loading="eager"
+            decoding="async"
+            className="mx-auto h-24 w-auto max-w-[260px] rounded-xl border border-slate-700 bg-white px-4 py-3 object-contain shadow-sm"
+          />
           <h1 className="mt-4 text-2xl font-semibold">Vastushobha Construction</h1>
           <p className="mt-1 text-sm text-zinc-300">Secure admin login</p>
         </div>

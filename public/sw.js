@@ -1,5 +1,5 @@
-const CACHE_NAME = 'vastushobha-construction-v2';
-const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/brandlogo.png', '/pwa-192.png', '/pwa-512.png'];
+const CACHE_NAME = 'vastushobha-construction-v3';
+const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/logo.png', '/brandlogo.png', '/pwa-192.png', '/pwa-512.png'];
 const IS_LOCAL_DEV = ['localhost', '127.0.0.1', '::1'].includes(self.location.hostname);
 
 self.addEventListener('install', (event) => {
