@@ -74,6 +74,22 @@ const createInitialExpense = () => ({
   payees: [createEmptyPayee()]
 });
 
+const getPaymentChequeRows = (payment) => {
+  if (Array.isArray(payment.paymentSplits) && payment.paymentSplits.length) {
+    return payment.paymentSplits
+      .filter((split) => split.paymentMode === 'cheque' && split.chequeNumber)
+      .map((split, index) => ({
+        ...payment,
+        ...split,
+        id: `${payment.id}_${index}`,
+        sourcePaymentId: payment.id,
+        amount: Number(split.amount || 0)
+      }));
+  }
+
+  return payment.paymentType === 'in' && payment.paymentMode === 'cheque' && payment.chequeNumber ? [payment] : [];
+};
+
 const Expenses = () => {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState([]);
@@ -111,7 +127,8 @@ const Expenses = () => {
           const paymentSnapshot = await getDocs(collection(db, `projects/${project.id}/payments`));
           return paymentSnapshot.docs
             .map((payment) => ({ id: payment.id, projectId: project.id, projectName: project.name || 'Unknown site', ...payment.data() }))
-            .filter((payment) => payment.paymentType === 'in' && payment.paymentMode === 'cheque' && payment.chequeNumber);
+            .filter((payment) => payment.paymentType === 'in')
+            .flatMap(getPaymentChequeRows);
         })
       );
 

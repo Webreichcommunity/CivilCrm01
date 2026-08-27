@@ -3,6 +3,41 @@ import { Download, FileSpreadsheet, FileText, X } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
 
+const paymentModeLabel = (value) => (value || '-').replace('-', ' ');
+
+const getPaymentSplits = (entry) => {
+  if (Array.isArray(entry.paymentSplits) && entry.paymentSplits.length) {
+    return entry.paymentSplits;
+  }
+
+  return [{
+    amount: entry.amount || 0,
+    paymentMode: entry.paymentMode || '',
+    chequeNumber: entry.chequeNumber || '',
+    chequeName: entry.chequeName || '',
+    bankName: entry.bankName || '',
+    chequeDate: entry.chequeDate || ''
+  }];
+};
+
+const paymentSplitSummary = (entry) =>
+  getPaymentSplits(entry)
+    .map((split, index) => {
+      const mode = paymentModeLabel(split.paymentMode);
+      const amount = Number(split.amount || 0).toLocaleString('en-IN');
+      const cheque = split.paymentMode === 'cheque'
+        ? `, Cheque ${index + 1}: ${split.chequeNumber || '-'}, ${split.chequeName || '-'}, ${split.bankName || '-'}, ${split.chequeDate || '-'}`
+        : '';
+      return `INR ${amount} (${mode})${cheque}`;
+    })
+    .join(' | ');
+
+const paymentChequeSummary = (entry) =>
+  getPaymentSplits(entry)
+    .filter((split) => split.paymentMode === 'cheque')
+    .map((split, index) => `Cheque ${index + 1}: ${split.chequeNumber || '-'}, ${split.chequeName || '-'}, ${split.bankName || '-'}, ${split.chequeDate || '-'}`)
+    .join(' | ');
+
 const mapDataByType = (data, type, itemNames) => {
   if (type === 'material') {
     return data.map((entry) => {
@@ -49,12 +84,11 @@ const mapDataByType = (data, type, itemNames) => {
     return data.map((entry) => ({
       'Date & Time': new Date(entry.dateTime).toLocaleString('en-IN'),
       'Amount (INR)': Number(entry.amount || 0),
-      'Payment Mode': entry.paymentMode || '',
-      'Cheque Number': entry.chequeNumber || '',
-      'Cheque Name': entry.chequeName || '',
-      'Bank Name': entry.bankName || '',
-      'Cheque Date': entry.chequeDate || '',
+      'Payment Mode': entry.paymentMode === 'multiple' ? 'Multiple' : entry.paymentMode || '',
+      'Payment Splits': paymentSplitSummary(entry),
+      'Cheque Details': paymentChequeSummary(entry),
       'Payment Type': entry.paymentType === 'in' ? 'Payment In' : 'Payment Out',
+      Category: entry.categoryName || '',
       Note: entry.note || ''
     }));
   }

@@ -21,6 +21,15 @@ const paymentTypeOptions = [
   { value: 'out', label: 'Payment Out' }
 ];
 
+const createEmptyPaymentSplit = () => ({
+  amount: '',
+  paymentMode: '',
+  chequeNumber: '',
+  chequeName: '',
+  bankName: '',
+  chequeDate: ''
+});
+
 const createInitialEntry = () => ({
   dateTime: getLocalDateTimeInputValue(),
   amount: '',
@@ -29,6 +38,7 @@ const createInitialEntry = () => ({
   chequeName: '',
   bankName: '',
   chequeDate: '',
+  paymentSplits: [createEmptyPaymentSplit()],
   paymentType: '',
   categoryId: '',
   categoryName: '',
@@ -109,28 +119,159 @@ const Payments = () => {
     setIsModalOpen(true);
   };
 
-  const savePayment = async () => {
-    if (!draftEntry.dateTime || !draftEntry.amount || !draftEntry.paymentMode || !draftEntry.paymentType || !draftEntry.categoryId) {
-      alert('Date, amount, payment mode, payment type, and category are required.');
-      return;
+  const cleanText = (value) => String(value || '').trim();
+  const matchesKeyword = (value, keyword) => String(value || '').toLowerCase().includes(keyword);
+  const paymentModeLabel = (value) => paymentModeOptions.find((option) => option.value === value)?.label || (value || '-').replace('-', ' ');
+
+  const getPaymentSplits = (entry) => {
+    if (Array.isArray(entry.paymentSplits) && entry.paymentSplits.length) {
+      return entry.paymentSplits.map((split) => ({
+        ...createEmptyPaymentSplit(),
+        ...split,
+        amount: split.amount ?? ''
+      }));
     }
-    if (
-      draftEntry.paymentMode === 'cheque' &&
-      (!draftEntry.chequeNumber.trim() || !draftEntry.chequeName.trim() || !draftEntry.bankName.trim() || !draftEntry.chequeDate)
-    ) {
-      alert('Cheque number, cheque name, bank name, and cheque date are required for cheque payments.');
+
+    return [{
+      amount: entry.amount || '',
+      paymentMode: entry.paymentMode || '',
+      chequeNumber: entry.chequeNumber || '',
+      chequeName: entry.chequeName || '',
+      bankName: entry.bankName || '',
+      chequeDate: entry.chequeDate || ''
+    }];
+  };
+
+  const hasSplitContent = (split) =>
+    split.paymentMode ||
+    Number(split.amount || 0) > 0 ||
+    cleanText(split.chequeNumber) ||
+    cleanText(split.chequeName) ||
+    cleanText(split.bankName) ||
+    split.chequeDate;
+
+  const normalizeChequeFields = (split) => ({
+    chequeNumber: split.paymentMode === 'cheque' ? cleanText(split.chequeNumber) : '',
+    chequeName: split.paymentMode === 'cheque' ? cleanText(split.chequeName) : '',
+    bankName: split.paymentMode === 'cheque' ? cleanText(split.bankName) : '',
+    chequeDate: split.paymentMode === 'cheque' ? split.chequeDate : ''
+  });
+
+  const isChequeDetailsMissing = (split) =>
+    !cleanText(split.chequeNumber) ||
+    !cleanText(split.chequeName) ||
+    !cleanText(split.bankName) ||
+    !split.chequeDate;
+
+  const paymentSplitTotal = draftEntry.paymentSplits.reduce((sum, split) => sum + Number(split.amount || 0), 0);
+  const paymentSplitRemaining = Number(draftEntry.amount || 0) - paymentSplitTotal;
+
+  const paymentModeSummary = (entry) => {
+    const splits = getPaymentSplits(entry).filter((split) => split.paymentMode || Number(split.amount || 0) > 0);
+    if (!splits.length) return '-';
+
+    return splits
+      .map((split) => `${paymentModeLabel(split.paymentMode)}: ${formatCurrency(split.amount)}`)
+      .join(' | ');
+  };
+
+  const chequeSummary = (entry) => {
+    const chequeSplits = getPaymentSplits(entry).filter((split) => split.paymentMode === 'cheque');
+    if (!chequeSplits.length) return '-';
+
+    return (
+      <div className="space-y-2">
+        {chequeSplits.map((split, index) => (
+          <div key={`${split.chequeNumber || 'cheque'}-${index}`} className="space-y-0.5">
+            <p className="font-medium text-slate-900">Cheque {index + 1}: {formatCurrency(split.amount)}</p>
+            <p>No: {split.chequeNumber || '-'}</p>
+            <p>Name: {split.chequeName || '-'}</p>
+            <p>Bank: {split.bankName || '-'}</p>
+            <p>Date: {split.chequeDate || '-'}</p>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const updatePaymentSplit = (index, field, value) => {
+    setDraftEntry((prev) => ({
+      ...prev,
+      paymentSplits: prev.paymentSplits.map((split, splitIndex) => {
+        if (splitIndex !== index) return split;
+        if (field === 'paymentMode' && value !== 'cheque') {
+          return { ...split, paymentMode: value, chequeNumber: '', chequeName: '', bankName: '', chequeDate: '' };
+        }
+        return { ...split, [field]: value };
+      })
+    }));
+  };
+
+  const addPaymentSplit = () => {
+    setDraftEntry((prev) => ({ ...prev, paymentSplits: [...prev.paymentSplits, createEmptyPaymentSplit()] }));
+  };
+
+  const removePaymentSplit = (index) => {
+    setDraftEntry((prev) => ({
+      ...prev,
+      paymentSplits: prev.paymentSplits.length === 1
+        ? prev.paymentSplits
+        : prev.paymentSplits.filter((_, splitIndex) => splitIndex !== index)
+    }));
+  };
+
+  const savePayment = async () => {
+    if (!draftEntry.dateTime || !draftEntry.amount || !draftEntry.paymentType || !draftEntry.categoryId) {
+      alert('Date, amount, payment type, and category are required.');
       return;
     }
 
+    const amountValue = Number(draftEntry.amount);
+    if (amountValue <= 0) {
+      alert('Amount must be greater than zero.');
+      return;
+    }
+
+    const normalizedSplits = draftEntry.paymentSplits
+      .filter(hasSplitContent)
+      .map((split) => ({
+        amount: Number(split.amount || 0),
+        paymentMode: split.paymentMode,
+        ...normalizeChequeFields(split)
+      }));
+
+    if (!normalizedSplits.length) {
+      alert('Please add at least one payment split.');
+      return;
+    }
+    if (normalizedSplits.some((split) => !split.paymentMode || split.amount <= 0)) {
+      alert('Every payment split needs a payment mode and amount greater than zero.');
+      return;
+    }
+    if (Math.abs(normalizedSplits.reduce((sum, split) => sum + split.amount, 0) - amountValue) > 0.01) {
+      alert('The total of all payment splits must exactly match the payment amount.');
+      return;
+    }
+    if (normalizedSplits.some((split) => split.paymentMode === 'cheque' && isChequeDetailsMissing(split))) {
+      alert('Cheque number, cheque name, bank name, and cheque date are required for every cheque split.');
+      return;
+    }
+
+    const firstSplit = normalizedSplits[0] || createEmptyPaymentSplit();
+    const firstChequeSplit = normalizedSplits.find((split) => split.paymentMode === 'cheque') || createEmptyPaymentSplit();
     const payload = {
       ...draftEntry,
-      amount: Number(draftEntry.amount),
+      amount: amountValue,
+      paymentMode: normalizedSplits.length === 1 ? firstSplit.paymentMode : 'multiple',
+      paymentSplits: normalizedSplits,
+      splitPayment: normalizedSplits.length > 1,
       categoryName: paymentCategories.find((category) => category.id === draftEntry.categoryId)?.name || draftEntry.categoryName || '',
-      chequeNumber: draftEntry.paymentMode === 'cheque' ? draftEntry.chequeNumber.trim() : '',
-      chequeName: draftEntry.paymentMode === 'cheque' ? draftEntry.chequeName.trim() : '',
-      bankName: draftEntry.paymentMode === 'cheque' ? draftEntry.bankName.trim() : '',
-      chequeDate: draftEntry.paymentMode === 'cheque' ? draftEntry.chequeDate : '',
-      createdAt: new Date().toISOString()
+      chequeNumber: firstChequeSplit.chequeNumber || '',
+      chequeName: firstChequeSplit.chequeName || '',
+      bankName: firstChequeSplit.bankName || '',
+      chequeDate: firstChequeSplit.chequeDate || '',
+      updatedAt: new Date().toISOString(),
+      createdAt: editingId ? draftEntry.createdAt || new Date().toISOString() : new Date().toISOString()
     };
 
     try {
@@ -150,6 +291,7 @@ const Payments = () => {
 
   const editEntry = (entry) => {
     setDraftEntry({
+      ...createInitialEntry(),
       dateTime: entry.dateTime || getLocalDateTimeInputValue(),
       amount: entry.amount || '',
       paymentMode: entry.paymentMode || '',
@@ -157,10 +299,12 @@ const Payments = () => {
       chequeName: entry.chequeName || '',
       bankName: entry.bankName || '',
       chequeDate: entry.chequeDate || '',
+      paymentSplits: getPaymentSplits(entry),
       paymentType: entry.paymentType || '',
       categoryId: entry.categoryId || '',
       categoryName: entry.categoryName || '',
-      note: entry.note || ''
+      note: entry.note || '',
+      createdAt: entry.createdAt || ''
     });
     setEditingId(entry.id);
     setIsModalOpen(true);
@@ -252,16 +396,19 @@ const Payments = () => {
 
     const totalAmount = selectedEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
     const lines = selectedEntries.map((entry, index) => {
+      const splitLines = getPaymentSplits(entry).map((split, splitIndex) => {
+        const cheque = split.paymentMode === 'cheque'
+          ? ` | Cheque: ${split.chequeNumber || '-'}, ${split.chequeName || '-'}, ${split.bankName || '-'}, ${split.chequeDate || '-'}`
+          : '';
+        return `Split ${splitIndex + 1}: INR ${Number(split.amount || 0).toLocaleString('en-IN')} via ${paymentModeLabel(split.paymentMode)}${cheque}`;
+      });
+
       return [
         `${index + 1}. Date: ${new Date(entry.dateTime).toLocaleString('en-IN')}`,
         `Amount: INR ${Number(entry.amount || 0).toLocaleString('en-IN')}`,
-        `Mode: ${(entry.paymentMode || '-').replace('-', ' ')}`,
+        `Payment Split: ${splitLines.join(' | ')}`,
         `Type: ${entry.paymentType === 'in' ? 'Payment In' : 'Payment Out'}`,
         `Category: ${entry.categoryName || '-'}`,
-        `Cheque No: ${entry.chequeNumber || '-'}`,
-        `Cheque Name: ${entry.chequeName || '-'}`,
-        `Bank: ${entry.bankName || '-'}`,
-        `Cheque Date: ${entry.chequeDate || '-'}`,
         `Note: ${entry.note || '-'}`
       ].join('\n');
     });
@@ -295,20 +442,27 @@ const Payments = () => {
 
       if (startDate && entryDate < startDate) return false;
       if (endDate && entryDate > endDate) return false;
-      if (filters.paymentMode && entry.paymentMode !== filters.paymentMode) return false;
+      const entrySplits = getPaymentSplits(entry);
+      if (filters.paymentMode && entry.paymentMode !== filters.paymentMode && !entrySplits.some((split) => split.paymentMode === filters.paymentMode)) return false;
       if (filters.paymentType && entry.paymentType !== filters.paymentType) return false;
       if (filters.categoryId && entry.categoryId !== filters.categoryId) return false;
 
       if (!searchTerm.trim()) return true;
       const keyword = searchTerm.toLowerCase();
       return (
-        entry.note?.toLowerCase().includes(keyword) ||
-        entry.categoryName?.toLowerCase().includes(keyword) ||
-        entry.paymentMode?.toLowerCase().includes(keyword) ||
-        entry.paymentType?.toLowerCase().includes(keyword) ||
-        entry.chequeNumber?.toLowerCase().includes(keyword) ||
-        entry.chequeName?.toLowerCase().includes(keyword) ||
-        entry.bankName?.toLowerCase().includes(keyword)
+        matchesKeyword(entry.note, keyword) ||
+        matchesKeyword(entry.categoryName, keyword) ||
+        matchesKeyword(entry.paymentMode, keyword) ||
+        matchesKeyword(entry.paymentType, keyword) ||
+        matchesKeyword(entry.chequeNumber, keyword) ||
+        matchesKeyword(entry.chequeName, keyword) ||
+        matchesKeyword(entry.bankName, keyword) ||
+        entrySplits.some((split) =>
+          paymentModeLabel(split.paymentMode).toLowerCase().includes(keyword) ||
+          matchesKeyword(split.chequeNumber, keyword) ||
+          matchesKeyword(split.chequeName, keyword) ||
+          matchesKeyword(split.bankName, keyword)
+        )
       );
     });
   }, [payments, filters, searchTerm]);
@@ -456,20 +610,9 @@ const Payments = () => {
                 <tr key={entry.id} className="hover:bg-blue-50/60">
                   <td className="px-4 py-3 text-sm text-slate-600">{new Date(entry.dateTime).toLocaleString('en-IN')}</td>
                   <td className="px-4 py-3 text-sm font-semibold text-slate-900">INR {Number(entry.amount || 0).toLocaleString('en-IN')}</td>
-                  <td className="px-4 py-3 text-sm text-slate-600 capitalize">{(entry.paymentMode || '-').replace('-', ' ')}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{paymentModeSummary(entry)}</td>
                   <td className="px-4 py-3 text-sm text-slate-600">{entry.categoryName || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-slate-600">
-                    {entry.paymentMode === 'cheque' ? (
-                      <div className="space-y-0.5">
-                        <p>No: {entry.chequeNumber || '-'}</p>
-                        <p>Name: {entry.chequeName || '-'}</p>
-                        <p>Bank: {entry.bankName || '-'}</p>
-                        <p>Date: {entry.chequeDate || '-'}</p>
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{chequeSummary(entry)}</td>
                   <td className={`px-4 py-3 text-sm font-semibold ${entry.paymentType === 'in' ? 'text-emerald-700' : 'text-red-700'}`}>
                     {entry.paymentType === 'in' ? 'Payment In' : 'Payment Out'}
                   </td>
@@ -614,7 +757,7 @@ const Payments = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="glass-card max-h-[92vh] w-full max-w-2xl overflow-y-auto">
+          <div className="glass-card max-h-[92vh] w-full max-w-5xl overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <h3 className="text-lg font-semibold text-slate-900">{editingId ? 'Edit Payment Entry' : 'Add Payment Entry'}</h3>
               <button type="button" onClick={() => setIsModalOpen(false)} className="neutral-btn h-9 w-9 border-none p-0">
@@ -643,22 +786,6 @@ const Payments = () => {
                   className="input-field"
                   placeholder="0.00"
                 />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">Payment Mode</label>
-                <select
-                  value={draftEntry.paymentMode}
-                  onChange={(event) => setDraftEntry((prev) => ({ ...prev, paymentMode: event.target.value }))}
-                  className="input-field"
-                >
-                  <option value="">Select payment mode</option>
-                  {paymentModeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div>
@@ -709,46 +836,107 @@ const Payments = () => {
                 </select>
               </div>
 
-              {draftEntry.paymentMode === 'cheque' && (
-                <>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Cheque Number</label>
-                  <input
-                    value={draftEntry.chequeNumber}
-                    onChange={(event) => setDraftEntry((prev) => ({ ...prev, chequeNumber: event.target.value }))}
-                    className="input-field"
-                    placeholder="Enter cheque number"
-                  />
+              <div className="md:col-span-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Payment Split</p>
+                      <p className="text-xs text-slate-500">
+                        Split total: {formatCurrency(paymentSplitTotal)} | Remaining: {formatCurrency(paymentSplitRemaining)}
+                      </p>
+                    </div>
+                    <button type="button" onClick={addPaymentSplit} className="neutral-btn h-8 px-3 py-1 text-xs">
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Mode
+                    </button>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {draftEntry.paymentSplits.map((split, index) => (
+                      <div key={`${split.paymentMode || 'split'}-${index}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                        <div className="grid gap-3 md:grid-cols-[0.7fr_1fr_auto] md:items-end">
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Amount</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={split.amount}
+                              onChange={(event) => updatePaymentSplit(index, 'amount', event.target.value)}
+                              className="input-field"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Payment Mode</label>
+                            <select
+                              value={split.paymentMode}
+                              onChange={(event) => updatePaymentSplit(index, 'paymentMode', event.target.value)}
+                              className="input-field"
+                            >
+                              <option value="">Select payment mode</option>
+                              {paymentModeOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removePaymentSplit(index)}
+                            className="neutral-btn h-10 px-3 text-xs"
+                            disabled={draftEntry.paymentSplits.length === 1}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove
+                          </button>
+                        </div>
+
+                        {split.paymentMode === 'cheque' && (
+                          <div className="mt-3 grid gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-3 md:grid-cols-2 xl:grid-cols-4">
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Cheque Number</label>
+                              <input
+                                value={split.chequeNumber}
+                                onChange={(event) => updatePaymentSplit(index, 'chequeNumber', event.target.value)}
+                                className="input-field"
+                                placeholder="Enter cheque number"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Cheque Name</label>
+                              <input
+                                value={split.chequeName}
+                                onChange={(event) => updatePaymentSplit(index, 'chequeName', event.target.value)}
+                                className="input-field"
+                                placeholder="Name on cheque"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Bank Name</label>
+                              <input
+                                value={split.bankName}
+                                onChange={(event) => updatePaymentSplit(index, 'bankName', event.target.value)}
+                                className="input-field"
+                                placeholder="Bank name"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Cheque Date</label>
+                              <input
+                                type="date"
+                                value={split.chequeDate}
+                                onChange={(event) => updatePaymentSplit(index, 'chequeDate', event.target.value)}
+                                className="input-field"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Cheque Name</label>
-                  <input
-                    value={draftEntry.chequeName}
-                    onChange={(event) => setDraftEntry((prev) => ({ ...prev, chequeName: event.target.value }))}
-                    className="input-field"
-                    placeholder="Name on cheque"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Bank Name</label>
-                  <input
-                    value={draftEntry.bankName}
-                    onChange={(event) => setDraftEntry((prev) => ({ ...prev, bankName: event.target.value }))}
-                    className="input-field"
-                    placeholder="Bank name"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Cheque Date</label>
-                  <input
-                    type="date"
-                    value={draftEntry.chequeDate}
-                    onChange={(event) => setDraftEntry((prev) => ({ ...prev, chequeDate: event.target.value }))}
-                    className="input-field"
-                  />
-                </div>
-                </>
-              )}
+              </div>
 
               <div className="md:col-span-2">
                 <label className="mb-2 block text-sm font-medium text-slate-700">Note</label>
