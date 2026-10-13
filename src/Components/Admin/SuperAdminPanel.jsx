@@ -26,7 +26,7 @@ import {
 import { db } from '../../Firebase/config';
 import { formatCurrency, getAllocatedExpenseTotalForProject } from '../../utils/projectFinance';
 
-const SUPER_ADMIN_PASSWORD = 'admin123';
+const SUPER_ADMIN_PASSWORD = 'Vastu@shobha41#';
 
 const monthKeyFromDate = (value) => {
   const date = new Date(value);
