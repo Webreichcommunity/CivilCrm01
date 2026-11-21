@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Download, LogOut, Menu, RotateCw } from 'lucide-react';
+import { Download, LogOut, Menu, Trash2 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../../Firebase/config';
+import { deleteAllAppData } from '../../utils/deleteAllData';
 
 const TopBar = ({ onMenuClick, showMenuButton, userName, currentProjectName }) => {
   const navigate = useNavigate();
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [isStandalone, setIsStandalone] = useState(() =>
     typeof window !== 'undefined' && Boolean(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone)
   );
@@ -36,18 +38,17 @@ const TopBar = ({ onMenuClick, showMenuButton, userName, currentProjectName }) =
     navigate('/login');
   };
 
-  const handleRefresh = async () => {
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map((registration) => registration.unregister()));
-    }
+  const handleDeleteAll = async () => {
+    if (isDeletingAll) return;
 
-    if ('caches' in window) {
-      const cacheKeys = await caches.keys();
-      await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+    setIsDeletingAll(true);
+    try {
+      await deleteAllAppData();
+      window.location.assign('/');
+    } catch (error) {
+      console.error('Error deleting all data:', error);
+      setIsDeletingAll(false);
     }
-
-    window.location.reload();
   };
 
   const handleInstall = async () => {
@@ -105,11 +106,13 @@ const TopBar = ({ onMenuClick, showMenuButton, userName, currentProjectName }) =
           )}
           <button
             type="button"
-            onClick={handleRefresh}
+            onClick={handleDeleteAll}
+            disabled={isDeletingAll}
             className="neutral-btn border-slate-700 bg-slate-800/80 px-3 py-2 text-slate-200 hover:bg-slate-700"
-            title="Clear cache and refresh"
+            title={isDeletingAll ? 'Deleting all data...' : 'Delete all data'}
+            aria-label={isDeletingAll ? 'Deleting all data' : 'Delete all data'}
           >
-            <RotateCw className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" />
           </button>
           <button type="button" onClick={handleLogout} className="neutral-btn border-slate-700 bg-slate-800/80 px-3 py-2 text-slate-200 hover:bg-slate-700">
             <LogOut className="h-4 w-4" />
