@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Download, LogOut, Menu, Trash2 } from 'lucide-react';
+import { Download, LogOut, Menu, RefreshCw } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../../Firebase/config';
-import { deleteAllAppData } from '../../utils/deleteAllData';
 
 const TopBar = ({ onMenuClick, showMenuButton, userName, currentProjectName }) => {
   const navigate = useNavigate();
   const [installPrompt, setInstallPrompt] = useState(null);
-  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [isStandalone, setIsStandalone] = useState(() =>
     typeof window !== 'undefined' && Boolean(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone)
   );
@@ -36,19 +34,6 @@ const TopBar = ({ onMenuClick, showMenuButton, userName, currentProjectName }) =
   const handleLogout = async () => {
     await signOut(auth);
     navigate('/login');
-  };
-
-  const handleDeleteAll = async () => {
-    if (isDeletingAll) return;
-
-    setIsDeletingAll(true);
-    try {
-      await deleteAllAppData();
-      window.location.assign('/');
-    } catch (error) {
-      console.error('Error deleting all data:', error);
-      setIsDeletingAll(false);
-    }
   };
 
   const handleInstall = async () => {
@@ -106,13 +91,13 @@ const TopBar = ({ onMenuClick, showMenuButton, userName, currentProjectName }) =
           )}
           <button
             type="button"
-            onClick={handleDeleteAll}
-            disabled={isDeletingAll}
+            onClick={() => window.location.reload()}
             className="neutral-btn border-slate-700 bg-slate-800/80 px-3 py-2 text-slate-200 hover:bg-slate-700"
-            title={isDeletingAll ? 'Deleting all data...' : 'Delete all data'}
-            aria-label={isDeletingAll ? 'Deleting all data' : 'Delete all data'}
+            title="Refresh data"
+            aria-label="Refresh data"
           >
-            <Trash2 className="h-4 w-4" />
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Refresh</span>
           </button>
           <button type="button" onClick={handleLogout} className="neutral-btn border-slate-700 bg-slate-800/80 px-3 py-2 text-slate-200 hover:bg-slate-700">
             <LogOut className="h-4 w-4" />

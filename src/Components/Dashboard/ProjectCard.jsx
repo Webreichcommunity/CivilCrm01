@@ -48,7 +48,13 @@ const ProjectCard = ({ project, onDelete, onUpdate }) => {
     const cleaned = draftName.trim();
     const cleanedClientName = draftClientName.trim();
     if ((cleaned && cleaned !== project.name) || cleanedClientName !== (project.clientName || '') || draftSiteType !== (project.siteType || '')) {
-      onUpdate(project.id, { name: cleaned, clientName: cleanedClientName, siteType: draftSiteType });
+      const reviewed = project.recoveryNeedsReview && cleaned && cleanedClientName && draftSiteType;
+      onUpdate(project.id, {
+        name: cleaned,
+        clientName: cleanedClientName,
+        siteType: draftSiteType,
+        ...(reviewed ? { recoveryNeedsReview: false, recoveryNote: '' } : {})
+      });
     }
     setIsEditing(false);
   };
@@ -120,6 +126,11 @@ const ProjectCard = ({ project, onDelete, onUpdate }) => {
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
                 {project.status || 'Active'}
               </span>
+              {project.recoveryNeedsReview && (
+                <span title={project.recoveryNote} className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+                  Review recovered details
+                </span>
+              )}
             </div>
             <h3 className="truncate text-base font-semibold text-zinc-900 md:text-lg">{project.name}</h3>
             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
